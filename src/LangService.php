@@ -42,16 +42,16 @@ class LangService extends Command
 
         if ($this->module !== null) {
             $this->newLine(1);
-            $this->info('Generating lang for module: ' .$this->module);
+            $this->info('Generating lang for module: ' . $this->module);
 
-            $this->path = config('modules.paths.modules_folder') ."/{$this->module}";
-            $this->destination = config('modules.paths.modules_folder') ."/{$this->module}";
+            $this->path = config('modules.paths.modules_folder') . "/{$this->module}";
+            $this->destination = config('modules.paths.modules_folder') . "/{$this->module}";
         }
 
         //Parse custom path
         if ($this->path !== null) {
             $this->info('Parsing custom path...');
-            $this->line('Path: '.base_path($this->path));
+            $this->line('Path: ' . base_path($this->path));
 
             if (!is_dir(base_path($this->path))) {
                 $this->error('Can\'t find the specified directory. Please check --path parameter');
@@ -66,17 +66,17 @@ class LangService extends Command
                 $this->parseFile($file);
                 $bar->advance();
             }
-            
+
             $this->syncTranslationKeyWithTargetFile($this->files);
 
             $bar->finish();
 
             $this->newLine(1);
-            $this->line('Custom path parse finished. Found '.$this->customKeysCount.' keys in '.$this->customFilesCount.' files');
+            $this->line('Custom path parse finished. Found ' . $this->customKeysCount . ' keys in ' . $this->customFilesCount . ' files');
             unset($this->files);
 
             $this->newLine(1);
-            $this->line('Total keys found: '.count($this->translationsKeys));
+            $this->line('Total keys found: ' . count($this->translationsKeys));
 
             if (empty($this->translationsKeys)) {
                 $this->error('Nothing to generate.');
@@ -92,7 +92,7 @@ class LangService extends Command
             $this->info('Translation files generated.');
 
             $this->newLine(1);
-            $this->info('Translation generated into: ' .base_path($this->destination .'lang/'));
+            $this->info('Translation generated into: ' . base_path($this->destination . 'lang/'));
             exit;
         }
 
@@ -112,7 +112,7 @@ class LangService extends Command
         $bar->finish();
 
         $this->newLine(1);
-        $this->line('Views parse finished. Found '.$this->viewsKeysCount.' keys in '.$this->viewsFilesCount.' files');
+        $this->line('Views parse finished. Found ' . $this->viewsKeysCount . ' keys in ' . $this->viewsFilesCount . ' files');
         unset($this->files);
 
         //APP FOLDER
@@ -129,10 +129,10 @@ class LangService extends Command
         $bar->finish();
 
         $this->newLine(1);
-        $this->line('App parse finished. Found '.$this->appKeysCount.' keys in '.$this->appFilesCount.' files');
+        $this->line('App parse finished. Found ' . $this->appKeysCount . ' keys in ' . $this->appFilesCount . ' files');
 
         $this->newLine(1);
-        $this->line('Total keys found: '.count($this->translationsKeys));
+        $this->line('Total keys found: ' . count($this->translationsKeys));
 
         $this->newLine(1);
         $this->info('Generating translations...');
@@ -143,7 +143,7 @@ class LangService extends Command
         $this->info('Translation files generated.');
 
         $this->newLine(1);
-        $this->info('Translation generated into: ' .base_path($this->destination .'lang/'));
+        $this->info('Translation generated into: ' . base_path($this->destination . 'lang/'));
     }
 
     /**
@@ -160,7 +160,7 @@ class LangService extends Command
             if ($entry === '.' || $entry === '..') {
                 continue;
             }
-            $path = $directory.'/'.$entry;
+            $path = $directory . '/' . $entry;
             if (is_dir($path)) {
                 $this->parseDirectory($path);
                 continue;
@@ -236,14 +236,14 @@ class LangService extends Command
             $dataArr = $res;
             foreach ($this->languages as $language) {
                 if ($this->isNew === false) {
-                    $dataArr = $this->updateValues(base_path($this->destination .'lang/'.$language.'.json'), $dataArr);
+                    $dataArr = $this->updateValues(base_path($this->destination . 'lang/' . $language . '.json'), $dataArr);
                 }
 
                 if ($this->isSync === true) {
                     $dataArr = $this->syncValues($this->translationsKeys, $dataArr);
                 }
 
-                file_put_contents(base_path($this->destination .'lang/'.$language.'.json'), json_encode($dataArr, JSON_PRETTY_PRINT));
+                file_put_contents(base_path($this->destination . 'lang/' . $language . '.json'), json_encode($dataArr, JSON_PRETTY_PRINT));
             }
         } elseif ($this->fileType === 'array') {
             $bar = $this->output->createProgressBar(count($dataArr));
@@ -258,18 +258,24 @@ class LangService extends Command
         }
     }
 
-    function dataFill(&$res, $key, $value) {
+    function dataFill(&$res, $key, $value)
+    {
         if (str_contains($key, '.') && !str_contains($key, ' ')) {
             data_fill($res, $key, $value);
         } else {
             if ($this->fillValue) {
                 $val = $key;
-                $key = preg_replace("/[\W]+/", "_", $key);
-                $res[strtolower($key)] = $val;
+                $key = $this->generateKey($key);
+                $res[$key] = $val;
             } else {
                 $res[$key] = '';
             }
         }
+    }
+
+    function generateKey($key)
+    {
+        return preg_replace("/[\W]+/", "_", strtolower($key));
     }
 
     /**
@@ -389,14 +395,14 @@ class LangService extends Command
     private function fillKeys($fileName, array $keys)
     {
         $this->addDestinationTrailingSlash();
-        
+
         foreach ($this->languages as $language) {
-            if (!file_exists(base_path($this->destination .'lang'."/{$language}"))) {
-                if (!mkdir(base_path($this->destination .'lang'."/{$language}"), 0777, true) && !is_dir(base_path($this->destination .'lang'."/{$language}"))) {
+            if (!file_exists(base_path($this->destination . 'lang' . "/{$language}"))) {
+                if (!mkdir(base_path($this->destination . 'lang' . "/{$language}"), 0777, true) && !is_dir(base_path($this->destination . 'lang' . "/{$language}"))) {
                     throw new \RuntimeException(sprintf('Directory "%s" was not created', 'path/to/directory'));
                 }
             }
-            $filePath = base_path($this->destination .'lang'."/{$language}/{$fileName}.php");
+            $filePath = base_path($this->destination . 'lang' . "/{$language}/{$fileName}.php");
 
             if ($this->isNew === false) {
                 $keys = $this->updateValues($filePath, $keys);
@@ -413,7 +419,8 @@ class LangService extends Command
         }
     }
 
-    function addDestinationTrailingSlash() {
+    function addDestinationTrailingSlash()
+    {
         if ($this->destination) {
             if (!Str::endsWith($this->destination, "/")) {
                 $this->destination .= "/";
@@ -430,7 +437,8 @@ class LangService extends Command
      *
      * @return void
      */
-    function syncTranslationKeyWithTargetFile(array $files) {
+    function syncTranslationKeyWithTargetFile(array $files)
+    {
         if (!$files) {
             return;
         }
@@ -444,7 +452,7 @@ class LangService extends Command
             $fileContent = file_get_contents($file);
             $re = '/(@lang)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|(trans)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|(__)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)/m';
             preg_match_all($re, $fileContent, $matches, PREG_SET_ORDER, 0);
-            
+
             // Debug
             // if (!Str::contains($file, "assignee-contract.blade.php")) {
             //     continue;
@@ -467,15 +475,18 @@ class LangService extends Command
      *
      * @return array
      */
-    function parseLangFunction($fileContent) {
-        $fileContent = preg_replace_callback([
-            '/(@lang)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m',
-            '/(__)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m'
-        ],
-        function ($match) {
-            return $match[1] ."('" .strtolower($this->module) ."::{$this->fileName}." . preg_replace("/[\W]+/", "_", strtolower($match[2])) ."'" .($match[3] ?? '') .")";
-        }, 
-        $fileContent);
+    function parseLangFunction($fileContent)
+    {
+        $fileContent = preg_replace_callback(
+            [
+                '/(@lang)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m',
+                '/(__)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m'
+            ],
+            function ($match) {
+                return $match[1] . "('" . ($this->module ?: strtolower($this->module) . "::") . "{$this->fileName}." . $this->generateKey($match[2]) . "'" . ($match[3] ?? '') . ")";
+            },
+            $fileContent
+        );
 
         return $fileContent;
     }
@@ -518,7 +529,7 @@ class LangService extends Command
 
         foreach ($array as $key => $value) {
             if (is_array($value)) {
-                $value = $this->stringLineMaker($value, $prepend.'    ');
+                $value = $this->stringLineMaker($value, $prepend . '    ');
 
                 $output .= "\n{$prepend}    '{$key}' => [{$value}\n{$prepend}    ],";
             } else {
