@@ -3,11 +3,14 @@
 namespace Glebsky\LaravelLangGenerator;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class LangService extends Command
 {
     public $isSync = false;
     public $isNew = false;
+    public $destination = '';
+    public $fillValue = false;
 
     public $viewsFilesCount = 0;
     public $viewsKeysCount = 0;
@@ -74,6 +77,9 @@ class LangService extends Command
 
             $this->newLine(1);
             $this->info('Translation files generated.');
+
+            $this->newLine(1);
+            $this->info('Translation generated into: ' .base_path($this->destination .'lang/'));
             exit;
         }
 
@@ -119,6 +125,9 @@ class LangService extends Command
 
         $this->newLine(1);
         $this->info('Translation files generated.');
+
+        $this->newLine(1);
+        $this->info('Translation generated into: ' .base_path($this->destination .'lang/'));
     }
 
     /**
@@ -159,7 +168,8 @@ class LangService extends Command
     {
         $fileData = file_get_contents($path);
 
-        $re = '/@lang\(\'(.+?)\'\)|trans\(\'(.+?)\'\)|__\(\'(.+?)\'\)/m';
+        // $re = '/@lang\(\'(.+?)\'\)|trans\(\'(.+?)\'\)|__\(\'(.+?)\'\)/m';
+        $re = '/@lang\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|trans\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|__\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)/m';
         preg_match_all($re, $fileData, $matches, PREG_SET_ORDER, 0);
 
         $data = [];
@@ -199,33 +209,50 @@ class LangService extends Command
      */
     public function generateLangsFiles(array $dataArr)
     {
+        $this->addDestinationTrailingSlash();
+
+        $res = [];
         if ($this->fileType === 'json') {
+            foreach ($dataArr as $key => $value) {
+                $this->dataFill($res, $key, $value);
+            }
+
+            $dataArr = $res;
             foreach ($this->languages as $language) {
                 if ($this->isNew === false) {
-                    $dataArr = $this->updateValues(base_path('lang/'.$language.'.json'), $dataArr);
+                    $dataArr = $this->updateValues(base_path($this->destination .'lang/'.$language.'.json'), $dataArr);
                 }
 
                 if ($this->isSync === true) {
                     $dataArr = $this->syncValues($this->translationsKeys, $dataArr);
                 }
 
-                file_put_contents(base_path('lang/'.$language.'.json'), json_encode($dataArr, JSON_PRETTY_PRINT));
+                file_put_contents(base_path($this->destination .'lang/'.$language.'.json'), json_encode($dataArr, JSON_PRETTY_PRINT));
             }
         } elseif ($this->fileType === 'array') {
-            $res = [];
             $bar = $this->output->createProgressBar(count($dataArr));
             $bar->start();
             foreach ($dataArr as $key => $value) {
-                if (str_contains($key, '.') && !str_contains($key, ' ')) {
-                    data_fill($res, $key, $value);
-                } else {
-                    $res[$key] = '';
-                }
+                $this->dataFill($res, $key, $value);
                 $bar->advance();
             }
             $bar->finish();
 
             $this->fillKeys($this->fileName, $res);
+        }
+    }
+
+    function dataFill(&$res, $key, $value) {
+        if (str_contains($key, '.') && !str_contains($key, ' ')) {
+            data_fill($res, $key, $value);
+        } else {
+            if ($this->fillValue) {
+                $val = $key;
+                $key = preg_replace("/[\W]+/", "_", $key);
+                $res[strtolower($key)] = $val;
+            } else {
+                $res[$key] = '';
+            }
         }
     }
 
@@ -345,13 +372,15 @@ class LangService extends Command
      */
     private function fillKeys($fileName, array $keys)
     {
+        $this->addDestinationTrailingSlash();
+        
         foreach ($this->languages as $language) {
-            if (!file_exists(base_path('lang'."/{$language}"))) {
-                if (!mkdir(base_path('lang'."/{$language}"), 0777, true) && !is_dir(base_path('lang'."/{$language}"))) {
+            if (!file_exists(base_path($this->destination .'lang'."/{$language}"))) {
+                if (!mkdir(base_path($this->destination .'lang'."/{$language}"), 0777, true) && !is_dir(base_path($this->destination .'lang'."/{$language}"))) {
                     throw new \RuntimeException(sprintf('Directory "%s" was not created', 'path/to/directory'));
                 }
             }
-            $filePath = base_path('lang'."/{$language}/{$fileName}.php");
+            $filePath = base_path($this->destination .'lang'."/{$language}/{$fileName}.php");
 
             if ($this->isNew === false) {
                 $keys = $this->updateValues($filePath, $keys);
@@ -365,6 +394,14 @@ class LangService extends Command
             $fileContent = $keys;
 
             $this->writeFile($filePath, $fileContent);
+        }
+    }
+
+    function addDestinationTrailingSlash() {
+        if ($this->destination) {
+            if (!Str::endsWith($this->destination, "/")) {
+                $this->destination .= "/";
+            }
         }
     }
 

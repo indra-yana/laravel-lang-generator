@@ -31,5 +31,5 @@ return [
     | The specified folders will be created in the resource/lang folder
     |
     */
-    'languages' => ['en'],
+    'languages' => ['en', 'id'],
 ];
