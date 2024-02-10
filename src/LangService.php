@@ -443,11 +443,11 @@ class LangService extends Command
             return;
         }
 
-        if (!$this->isSyncFile && !$this->fillValue) {
+        if (!$this->isSyncFile || !$this->fillValue) {
             return;
         }
 
-        // TODO: test this
+        // TODO: test this, sync nya harus ketika generate lang translation, tidak bisa di run berkali2 akan saling timpa
         foreach ($files as $file) {
             $fileContent = file_get_contents($file);
             $re = '/(@lang)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|(trans)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|(__)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)/m';
@@ -477,13 +477,20 @@ class LangService extends Command
      */
     function parseLangFunction($fileContent)
     {
-        $fileContent = preg_replace_callback(
-            [
+        $fileContent = preg_replace_callback([
                 '/(@lang)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m',
                 '/(__)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m'
             ],
             function ($match) {
-                return $match[1] . "('" . ($this->module ?: strtolower($this->module) . "::") . "{$this->fileName}." . $this->generateKey($match[2]) . "'" . ($match[3] ?? '') . ")";
+                $moduleKey = $this->module ? strtolower($this->module) . "::" : "";
+                $langFile = $this->fileName;
+                $langFunc = $match[1];
+                $langKey = $this->generateKey($match[2]);
+                $langArray = $match[3] ?? '';
+
+                return "$langFunc('{$moduleKey}{$langFile}.{$langKey}'{$langArray})";
+
+                // return "{$match[1]}('" .  . "{$this->fileName}." . $this->generateKey($match[2]) . "'" . ($match[3] ?? '') . ")";
             },
             $fileContent
         );
