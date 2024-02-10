@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class LangGeneratorCommand extends Command
 {
-    protected $signature = 'lang:generate {--T|type=} {--N|name=} {--L|langs=*} {--S|sync} {--C|clear} {--P|path=} {--D|destination=} {--F|fillvalue}';
+    protected $signature = 'lang:generate {--T|type=} {--N|name=} {--L|langs=*} {--S|sync} {--SF|syncfile} {--C|clear} {--P|path=} {--D|destination=} {--F|fillvalue} {--M|module=}';
 
     protected $description = 'Searches for multilingual phrases in Laravel project and automatically generates language files for you.';
 
@@ -32,6 +32,8 @@ class LangGeneratorCommand extends Command
         $this->manager->isNew = $this->option('clear');
         $this->manager->destination = $this->option('destination');
         $this->manager->fillValue = $this->option('fillvalue');
+        $this->manager->module = $this->option('module');
+        $this->manager->isSyncFile = $this->option('syncfile');
 
         $this->manager->fileType = $this->option('type') ?: $this->manager->fileType;
         $this->manager->fileName = $this->option('name') ?: $this->manager->fileName;

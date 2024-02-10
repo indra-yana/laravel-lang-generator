@@ -11,6 +11,8 @@ class LangService extends Command
     public $isNew = false;
     public $destination = '';
     public $fillValue = false;
+    public $module = '';
+    public $isSyncFile = false;
 
     public $viewsFilesCount = 0;
     public $viewsKeysCount = 0;
@@ -38,6 +40,14 @@ class LangService extends Command
     {
         $this->line('Start searching for language files...');
 
+        if ($this->module !== null) {
+            $this->newLine(1);
+            $this->info('Generating lang for module: ' .$this->module);
+
+            $this->path = config('modules.paths.modules_folder') ."/{$this->module}";
+            $this->destination = config('modules.paths.modules_folder') ."/{$this->module}";
+        }
+
         //Parse custom path
         if ($this->path !== null) {
             $this->info('Parsing custom path...');
@@ -56,6 +66,9 @@ class LangService extends Command
                 $this->parseFile($file);
                 $bar->advance();
             }
+            
+            $this->syncTranslationKeyWithTargetFile($this->files);
+
             $bar->finish();
 
             $this->newLine(1);
@@ -93,6 +106,9 @@ class LangService extends Command
             $this->parseFile($file);
             $bar->advance();
         }
+
+        $this->syncTranslationKeyWithTargetFile($this->files);
+
         $bar->finish();
 
         $this->newLine(1);
@@ -403,6 +419,65 @@ class LangService extends Command
                 $this->destination .= "/";
             }
         }
+    }
+
+    /**
+     * Added 11-02-2023 01:18
+     * 
+     * Sync transaltion key with the target file  
+     *
+     * @param $files
+     *
+     * @return void
+     */
+    function syncTranslationKeyWithTargetFile(array $files) {
+        if (!$files) {
+            return;
+        }
+
+        if (!$this->isSyncFile && !$this->fillValue) {
+            return;
+        }
+
+        // TODO: test this
+        foreach ($files as $file) {
+            $fileContent = file_get_contents($file);
+            $re = '/(@lang)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|(trans)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)|(__)\(\'?\"?(.+?)\'?\"?(?:,\s+\[.{1,256}\]){0,1}\)/m';
+            preg_match_all($re, $fileContent, $matches, PREG_SET_ORDER, 0);
+            
+            // Debug
+            // if (!Str::contains($file, "assignee-contract.blade.php")) {
+            //     continue;
+            // }
+
+            if ($matches) {
+                $updatedContent = $this->parseLangFunction($fileContent);
+
+                // file_put_contents($file, $updatedContent);
+            }
+        }
+    }
+
+    /**
+     * Added 11-02-2023 01:18
+     * 
+     * Sync transaltion key with the target file and find matches 
+     *
+     * @param $fileContent
+     *
+     * @return array
+     */
+    function parseLangFunction($fileContent) {
+        $fileContent = preg_replace_callback([
+            '/(@lang)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m',
+            '/(__)\(\'?\"?(.+?)\'?\"?(?:(,\s+\[.{1,256}\])){0,1}\)/m'
+        ],
+        function ($match) {
+            return $match[1] ."('" .strtolower($this->module) ."::{$this->fileName}." . preg_replace("/[\W]+/", "_", strtolower($match[2])) ."'" .($match[3] ?? '') .")";
+        }, 
+        $fileContent);
+
+        return $fileContent;
     }
 
     /*
