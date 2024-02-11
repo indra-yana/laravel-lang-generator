@@ -3,6 +3,7 @@
 namespace Glebsky\LaravelLangGenerator;
 
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Str;
 
 class LangService extends Command
@@ -260,8 +261,18 @@ class LangService extends Command
 
     function dataFill(&$res, $key, $value)
     {
-        if (str_contains($key, '.') && !str_contains($key, ' ')) {
+        $moduleKey = $this->module ? strtolower($this->module) . "::" : "";
+
+        if (str_contains($key, '.') && !str_contains($key, ' ') && !str_contains($key, $moduleKey)) {
             data_fill($res, $key, $value);
+        } else if(str_contains($key, $moduleKey) && $this->module) {
+            foreach ($this->languages as $language) {
+                $dataArr = $this->updateValues(base_path($this->destination . 'lang/' . $language . ($this->fileType === 'json' ? '.json' : '.php')), $res);
+            }
+
+            $keys = explode(".", $key);
+            $key = end($keys);
+            $res[$key] = $dataArr[$key] ?? '';
         } else {
             if ($this->fillValue) {
                 $val = $key;
@@ -275,7 +286,9 @@ class LangService extends Command
 
     function generateKey($key)
     {
-        return preg_replace("/[\W]+/", "_", strtolower($key));
+        return $this->removeTrailingUnderscore(
+            preg_replace("/[\W]+/", "_", strtolower($key))
+        );
     }
 
     /**
@@ -428,6 +441,10 @@ class LangService extends Command
         }
     }
 
+    function removeTrailingUnderscore($key) {
+        return Str::endsWith($key, "_") ? substr($key, 0, -1) : $key;
+    }
+
     /**
      * Added 11-02-2023 01:18
      * 
@@ -461,7 +478,7 @@ class LangService extends Command
             if ($matches) {
                 $updatedContent = $this->parseLangFunction($fileContent);
 
-                // file_put_contents($file, $updatedContent);
+                file_put_contents($file, $updatedContent);
             }
         }
     }
@@ -485,12 +502,15 @@ class LangService extends Command
                 $moduleKey = $this->module ? strtolower($this->module) . "::" : "";
                 $langFile = $this->fileName;
                 $langFunc = $match[1];
-                $langKey = $this->generateKey($match[2]);
+                $langKeyOrigin = $match[2];
+                $langKey = $this->generateKey($langKeyOrigin);
                 $langArray = $match[3] ?? '';
 
+                if ((str_contains($moduleKey, $langKeyOrigin)) || (str_contains($langKeyOrigin, '.') && !str_contains($langKeyOrigin, ' '))) {
+                    return $match[0];
+                }
+                
                 return "$langFunc('{$moduleKey}{$langFile}.{$langKey}'{$langArray})";
-
-                // return "{$match[1]}('" .  . "{$this->fileName}." . $this->generateKey($match[2]) . "'" . ($match[3] ?? '') . ")";
             },
             $fileContent
         );
